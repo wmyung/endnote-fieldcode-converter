@@ -1,0 +1,3 @@
+interface:
+  display_name: "EndNote Fieldcode Converter"
+  short_description: "Convert numbered DOCX citations into EndNote field codes."

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+.env
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# Generated DOCX outputs
+*_EndNote.docx
+~$*.docx
+
+# Local test files
+manuscript.docx
+test.docx
+sample.docx
