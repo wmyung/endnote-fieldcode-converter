@@ -187,3 +187,11 @@ endnote, docx, word, references, citations, manuscript, biomedical-writing, chat
 ## License
 
 This project is released under the MIT License. See [LICENSE](LICENSE).
+
+## Keywords / Search Terms
+
+`endnote` `zotero` `citation-manager` `reference-manager` `docx` `microsoft-word`
+`traveling-library` `addin-en-cite` `addin-en-reflist` `field-code`
+`crossref-api` `doi-lookup` `manuscript` `academic-writing` `biomedical`
+`vancouver-style` `citation-converter` `plain-text-citations`
+`zotero-to-endnote` `word-field-codes`
