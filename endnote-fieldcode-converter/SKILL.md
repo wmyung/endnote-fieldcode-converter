@@ -82,6 +82,12 @@ After conversion, inspect the script output. Treat these as blocking issues unle
 
 For Lancet-style superscript conversion, also verify multi-digit citations at user-flagged or highlighted positions by inspecting the resulting field display and embedded reference metadata. A known pitfall is converting `14`, `16`, or `25` as separate one-digit fields (`1`+`4`, `1`+`6`, `2`+`5`) if the citation-number regex prefers one-digit alternatives first. The Lancet converter should prefer longer numeric alternatives first, e.g. `(?:[12]\d\d|[1-9]\d|[1-9])`, and validation should confirm the display text remains `14`, `16`, `25`, etc.
 
+The Lancet converter protects plain-text rescue against common non-reference tokens using hard-coded vocabularies rather than blanket uppercase-letter rules:
+- ICD-10 one-letter prefixes, so `E14–E10`, `I14–I16`, and `I11` are not converted.
+- Air-pollution metric prefixes, so `PM10`, `PM2.5`/`PM2·5`, `NO2`, `SO2`, `O3`, `CO2`, `NOx`, and related tokens are not converted.
+- Chemical element symbols, so isotope-like tokens such as `C14`, `Na24`, `Fe59`, and `I131` are not converted.
+This protection applies only to plain-text rescue; already-superscript citation runs are still converted.
+
 If the user highlighted missed citations in the source DOCX, remove transient highlight formatting before final delivery unless the user asks to keep it, then re-run conversion and verify `yellow_run_count` or equivalent is zero.
 
 If the conversion fails because the references heading is not found, ask the user whether the heading is named differently, or rerun after editing a copy of the DOCX to use a `References` heading.
@@ -106,3 +112,4 @@ Consult `references/usage.md` for command examples and expected manuscript struc
 Consult `references/validation.md` for post-conversion checks and common failure modes.
 Consult `references/bjog-endnote-style.md` when the user asks for the BJOG EndNote `.ens` output style file.
 Consult `references/bjog-endnote-formatting.md` and run `scripts/format_bjog_endnote_docx.py` when the user asks to make an EndNote-fielded DOCX match BJOG visible citation/reference formatting while keeping EndNote fields editable.
+Consult `references/lancet-superscript-multidigit-pitfall.md` when user-flagged Lancet-style bare superscript citations such as `14`, `16`, or `25` appear missing or have wrong EndNote metadata after conversion.

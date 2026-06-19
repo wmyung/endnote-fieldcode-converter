@@ -23,6 +23,23 @@ CITE_SEQ = rf"{CITE_NUM}(?:\s*(?:,|;|\-|\u2013|\u2014)\s*{CITE_NUM})*"
 PLAIN_CITE_RE = re.compile(rf"(?<=[A-Za-z\),.;:])({CITE_SEQ})(?=(?:\s|[.;,:)\u2013\u2014-]|$))")
 SUPER_CITE_RE = re.compile(rf"({CITE_SEQ})")
 
+# Hard-coded non-citation tokens that commonly look like bare numeric references.
+# Keep this narrower than "any uppercase letter before a number": plain-text rescue
+# should still recover missed citations like diagnosis.16, disorder25, and use,15.
+ICD10_PREFIXES = set("ABCDEFGHJKLMNPQRSTVWXYZ")  # WHO ICD-10 first-character codes; U is reserved.
+AIR_POLLUTANT_PREFIXES = {
+    "PM", "NO", "NOX", "SO", "SOX", "CO", "CO2", "O3", "NH3", "CH4", "BC", "EC", "OC", "VOC", "VOCs",
+}
+ELEMENT_SYMBOLS = {
+    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar",
+    "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As", "Se", "Br", "Kr",
+    "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I", "Xe",
+    "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu",
+    "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra",
+    "Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg",
+    "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og",
+}
+
 
 def is_superscript(run):
     return bool(run.xpath('./w:rPr/w:vertAlign[@w:val="superscript"]', namespaces={'w': ec.NS_W}))
@@ -73,10 +90,50 @@ def field_runs_for_visible(visible, nums, ref_by_num, rpr):
     return ec.make_field_runs(' ADDIN EN.CITE ' + en_xml, visible, rpr)
 
 
-def split_text_with_citations(text, regex, ref_by_num, run, force_super=True):
+def contiguous_alpha_before(text, pos):
+    i = pos
+    while i > 0 and text[i-1].isalpha():
+        i -= 1
+    return text[i:pos]
+
+
+def is_blocked_plain_citation_context(text, match):
+    """Return True when a plain-text numeric match is a biomedical code/metric, not a citation.
+
+    This intentionally applies only to plain-text rescue, not to already-superscript
+    citation runs. It uses hard-coded vocabularies for ICD-10 prefixes, air-pollutant
+    abbreviations, and element symbols rather than a blanket uppercase-letter rule.
+    """
+    start, end = match.span(1)
+    prefix = contiguous_alpha_before(text, start)
+    if not prefix:
+        return False
+
+    # Air pollution metrics: PM10, PM2.5/PM2·5, NO2, SO2, O3, CO2, NOx, SOx, etc.
+    if prefix in AIR_POLLUTANT_PREFIXES or prefix.upper() in {p.upper() for p in AIR_POLLUTANT_PREFIXES}:
+        return True
+
+    # Isotopes/elements: C14, Na24, Fe59, I131, etc.
+    if prefix in ELEMENT_SYMBOLS:
+        return True
+
+    # ICD-10 codes/ranges: E14, E14–E10, I14–I16, I11.
+    # This is limited to valid ICD-10 one-letter prefixes, not arbitrary words.
+    if prefix in ICD10_PREFIXES:
+        after = text[end:end+4]
+        if not after or re.match(r"^[\s,.;:)\]-]", after) or re.match(r"^[\-\u2013\u2014][A-Z]?\d", after):
+            return True
+
+    return False
+
+
+def split_text_with_citations(text, regex, ref_by_num, run, force_super=True, protect_plain_context=False):
     out=[]; prev=0; converted=0; warnings=[]
     for m in regex.finditer(text):
         visible = m.group(1)
+        if protect_plain_context and is_blocked_plain_citation_context(text, m):
+            warnings.append(f'Skipped plain-text numeric token {visible}: protected biomedical code/metric context')
+            continue
         nums = ec.expand_citation_numbers(visible)
         if not nums:
             continue
@@ -111,7 +168,7 @@ def convert_paragraph(p, ref_by_num):
             else:
                 continue
         else:
-            new, n, w = split_text_with_citations(text, PLAIN_CITE_RE, ref_by_num, child, force_super=True)
+            new, n, w = split_text_with_citations(text, PLAIN_CITE_RE, ref_by_num, child, force_super=True, protect_plain_context=True)
         if n:
             replacements.append((child,new))
             converted += n

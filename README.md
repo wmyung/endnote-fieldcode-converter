@@ -98,7 +98,7 @@ The converter supports common bracketed numeric citation forms:
 [1,3-5]
 ```
 
-For Lancet-style manuscripts, use `endnote_lancet_superscript_converter.py`. It supports bare superscript numeric citations such as `14`, `16`, `25`, `6–8`, and citation numbers attached directly to punctuation or text, such as `diagnosis.16`, `disorder25`, and `use,15`. The Lancet converter prefers longer numeric citation matches first, preventing two-digit references from being split into one-digit fields.
+For Lancet-style manuscripts, use `endnote_lancet_superscript_converter.py`. It supports bare superscript numeric citations such as `14`, `16`, `25`, `6–8`, and citation numbers attached directly to punctuation or text, such as `diagnosis.16`, `disorder25`, and `use,15`. The Lancet converter prefers longer numeric citation matches first, preventing two-digit references from being split into one-digit fields. Plain-text rescue also protects hard-coded non-reference vocabularies: ICD-10 code prefixes (`E14–E10`, `I14–I16`, `I11`), air-pollution metrics (`PM10`, `PM2.5`/`PM2·5`, `NO2`, `SO2`, `O3`, `CO2`), and chemical element/isotope tokens (`C14`, `Na24`, `Fe59`, `I131`).
 
 ```bash
 python3 endnote-fieldcode-converter/scripts/endnote_lancet_superscript_converter.py \
