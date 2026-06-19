@@ -82,6 +82,8 @@ After conversion, inspect the script output. Treat these as blocking issues unle
 
 For Lancet-style superscript conversion, also verify multi-digit citations at user-flagged or highlighted positions by inspecting the resulting field display and embedded reference metadata. A known pitfall is converting `14`, `16`, or `25` as separate one-digit fields (`1`+`4`, `1`+`6`, `2`+`5`) if the citation-number regex prefers one-digit alternatives first. The Lancet converter should prefer longer numeric alternatives first, e.g. `(?:[12]\d\d|[1-9]\d|[1-9])`, and validation should confirm the display text remains `14`, `16`, `25`, etc.
 
+The Lancet converter first normalizes citation text split across adjacent superscript runs, because Word can store a visible citation such as `27,31` as separate superscript text runs like `2` and `7,31`. Without this normalization the output creates separate EndNote fields with incorrect display text. Verify merged multi-reference displays such as `27,31` and `6–8,25` after conversion.
+
 The Lancet converter protects plain-text rescue against common non-reference tokens using hard-coded vocabularies rather than blanket uppercase-letter rules:
 - ICD-10 one-letter prefixes, so `E14–E10`, `I14–I16`, and `I11` are not converted.
 - Air-pollution metric prefixes, so `PM10`, `PM2.5`/`PM2·5`, `NO2`, `SO2`, `O3`, `CO2`, `NOx`, and related tokens are not converted.

@@ -97,6 +97,57 @@ def contiguous_alpha_before(text, pos):
     return text[i:pos]
 
 
+def run_text(run):
+    return ''.join(t.text or '' for t in run.iter(W+'t'))
+
+
+def set_run_text(run, text):
+    texts = list(run.iter(W+'t'))
+    if not texts:
+        return
+    texts[0].text = text
+    for t in texts[1:]:
+        t.text = ''
+
+
+def normalize_split_superscript_citations(p):
+    """Merge citation text split across adjacent superscript runs before conversion.
+
+    Word often stores a visible citation like 27,31 as empty field-control-like runs
+    plus separate superscript text runs such as "2" and "7,31". Without merging,
+    the converter creates two EndNote fields. Empty non-superscript runs between
+    superscript text runs are ignored during this normalization.
+    """
+    children = [c for c in list(p) if c.tag == W+'r' and c.find(W+'t') is not None]
+    i = 0; merged = 0
+    while i < len(children):
+        child = children[i]
+        if is_superscript(child):
+            nonempty_sup = []
+            j = i
+            while j < len(children):
+                txt = run_text(children[j])
+                if is_superscript(children[j]):
+                    if txt:
+                        nonempty_sup.append(j)
+                    j += 1
+                    continue
+                if txt == '':
+                    j += 1
+                    continue
+                break
+            combined = ''.join(run_text(children[k]) for k in nonempty_sup)
+            if len(nonempty_sup) > 1 and re.fullmatch(rf"\s*{CITE_SEQ}\s*", combined):
+                set_run_text(children[nonempty_sup[0]], combined)
+                for k in nonempty_sup[1:]:
+                    set_run_text(children[k], '')
+                merged += 1
+            i = j
+        else:
+            i += 1
+    return merged
+
+
 def is_blocked_plain_citation_context(text, match):
     """Return True when a plain-text numeric match is a biomedical code/metric, not a citation.
 
@@ -153,6 +204,7 @@ def split_text_with_citations(text, regex, ref_by_num, run, force_super=True, pr
 
 
 def convert_paragraph(p, ref_by_num):
+    normalize_split_superscript_citations(p)
     converted=0; warnings=[]; replacements=[]
     for child in list(p):
         if child.tag != W+'r' or child.find(W+'t') is None:
