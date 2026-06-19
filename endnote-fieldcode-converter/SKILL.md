@@ -82,7 +82,11 @@ After conversion, inspect the script output. Treat these as blocking issues unle
 
 For Lancet-style superscript conversion, also verify multi-digit citations at user-flagged or highlighted positions by inspecting the resulting field display and embedded reference metadata. A known pitfall is converting `14`, `16`, or `25` as separate one-digit fields (`1`+`4`, `1`+`6`, `2`+`5`) if the citation-number regex prefers one-digit alternatives first. The Lancet converter should prefer longer numeric alternatives first, e.g. `(?:[12]\d\d|[1-9]\d|[1-9])`, and validation should confirm the display text remains `14`, `16`, `25`, etc.
 
-The Lancet converter first normalizes citation text split across adjacent superscript runs, because Word can store a visible citation such as `27,31` as separate superscript text runs like `2` and `7,31`. Without this normalization the output creates separate EndNote fields with incorrect display text. Verify merged multi-reference displays such as `27,31` and `6–8,25` after conversion.
+The Lancet converter first removes stale Word field-code control runs (`w:fldChar` / `w:instrText`) from the manuscript body before rebuilding EndNote fields. Some "clean" DOCX files still contain empty broken EndNote begin/separate/end markers around bare superscript numbers; if these are left in place, new fields can become nested inside old markers and appear as duplicate/empty citations or as too many references attached together.
+
+The Lancet converter then normalizes citation text split across adjacent superscript runs, because Word can store a visible citation such as `27,31` as separate superscript text runs like `2` and `7,31`. Without this normalization the output creates separate EndNote fields with incorrect display text. Verify merged multi-reference displays such as `27,31` and `6–8,25` after conversion.
+
+The Lancet converter also checks superscript context before conversion: superscript numerals that are part of pollutant/scientific notation, such as Word storing `PM2·5` as normal `PM` + superscript `2` + normal `·5`, are skipped rather than converted to reference 2. Check the immediate left/right text around a superscript token instead of relying only on whether the number is superscript.
 
 The Lancet converter protects plain-text rescue against common non-reference tokens using hard-coded vocabularies rather than blanket uppercase-letter rules:
 - ICD-10 one-letter prefixes, so `E14–E10`, `I14–I16`, and `I11` are not converted.

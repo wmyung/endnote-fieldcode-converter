@@ -110,6 +110,92 @@ def set_run_text(run, text):
         t.text = ''
 
 
+def run_has_field_code(run):
+    return run.find(W+'fldChar') is not None or run.find(W+'instrText') is not None
+
+
+def strip_existing_field_code_runs(p):
+    """Remove stale Word field-control runs before rebuilding EndNote fields.
+
+    Some supposedly "clean" manuscripts still contain empty w:fldChar begin/separate/end
+    runs from broken EndNote fields around bare superscripts. If left in place, newly
+    inserted fields become nested in those stale markers, producing duplicate or empty
+    citation fields and apparent over-citation. The Lancet converter rebuilds fields
+    from visible text, so these stale field-code runs must be removed first.
+    """
+    removed = 0
+    for child in list(p):
+        if child.tag == W+'r' and run_has_field_code(child):
+            p.remove(child)
+            removed += 1
+    return removed
+
+
+def previous_visible_text(run, limit=80):
+    parent = run.getparent()
+    if parent is None:
+        return ''
+    chunks = []
+    for sib in reversed(list(parent)[:parent.index(run)]):
+        if sib.tag != W+'r' or run_has_field_code(sib):
+            continue
+        txt = run_text(sib)
+        if txt:
+            chunks.append(txt)
+            if sum(len(c) for c in chunks) >= limit:
+                break
+    return ''.join(reversed(chunks))[-limit:]
+
+
+def next_visible_text(run, limit=40):
+    parent = run.getparent()
+    if parent is None:
+        return ''
+    chunks = []
+    for sib in list(parent)[parent.index(run)+1:]:
+        if sib.tag != W+'r' or run_has_field_code(sib):
+            continue
+        txt = run_text(sib)
+        if txt:
+            chunks.append(txt)
+            if sum(len(c) for c in chunks) >= limit:
+                break
+    return ''.join(chunks)[:limit]
+
+
+def is_blocked_superscript_citation_context(run, visible):
+    """Reject superscript numerals that are part of scientific/pollutant notation.
+
+    This is intentionally contextual rather than a blanket uppercase-letter rule:
+    true Lancet citations can follow words, but PM2·5/NO2/O3/C14-like tokens are
+    identified from the immediate left/right text around the superscript run.
+    """
+    left = previous_visible_text(run)
+    right = next_visible_text(run)
+    left_compact = re.sub(r"\s+", "", left)
+    right_lstrip = right.lstrip()
+    visible_clean = visible.strip()
+
+    # PM2·5 can be stored as normal "PM" + superscript "2" + normal "·5".
+    # Also protect cases where only the trailing decimal digit is superscript.
+    pollutant_base = r"(?:PM|NOx?|SOx?|CO2?|O3?|NH3|CH4|BC|EC|OC|VOC|VOCs|SF6)"
+    if re.search(pollutant_base + r"(?:\d+)?(?:[\.\u00b7])?$", left_compact, re.I):
+        if re.fullmatch(r"\d{1,3}", visible_clean) and (not right_lstrip or re.match(r"^[\.\u00b7\d\"')\],;: -]", right_lstrip)):
+            return True
+
+    # Chemical/isotope-style tokens, e.g. C14, I131, Na24.
+    m = re.search(r"([A-Z][a-z]?)$", left_compact)
+    if m and m.group(1) in ELEMENT_SYMBOLS and re.fullmatch(r"\d{1,3}", visible_clean):
+        if not right_lstrip or re.match(r"^[\s,.;:)\]-]", right_lstrip):
+            return True
+
+    # Scientific notation/exponents such as 10^5 or x^2 are not references.
+    if re.search(r"(?:10|[×xX*\u22c5])$", left_compact) and re.fullmatch(r"[\d+\-\u2212]+", visible_clean):
+        return True
+
+    return False
+
+
 def normalize_split_superscript_citations(p):
     """Merge citation text split across adjacent superscript runs before conversion.
 
@@ -204,8 +290,11 @@ def split_text_with_citations(text, regex, ref_by_num, run, force_super=True, pr
 
 
 def convert_paragraph(p, ref_by_num):
+    removed_fields = strip_existing_field_code_runs(p)
     normalize_split_superscript_citations(p)
     converted=0; warnings=[]; replacements=[]
+    if removed_fields:
+        warnings.append(f'Removed {removed_fields} stale field-code run(s) before rebuilding citations')
     for child in list(p):
         if child.tag != W+'r' or child.find(W+'t') is None:
             continue
@@ -216,6 +305,9 @@ def convert_paragraph(p, ref_by_num):
             continue
         if is_superscript(child):
             if re.fullmatch(rf"\s*{CITE_SEQ}\s*", text):
+                if is_blocked_superscript_citation_context(child, text):
+                    warnings.append(f'Skipped superscript numeric token {text.strip()}: protected scientific/pollutant context')
+                    continue
                 new, n, w = split_text_with_citations(text, SUPER_CITE_RE, ref_by_num, child, force_super=True)
             else:
                 continue
