@@ -49,7 +49,7 @@ STOP_HEADINGS = {
 }
 
 REF_HEADING_RE = re.compile(r"^(references|reference|bibliography)\s*$", re.I)
-REF_START_RE = re.compile(r"^\s*\[\s*(\d+)\s*\]\s*(.*)$", re.S)
+REF_START_RE = re.compile(r"^\s*(?:\[\s*(\d+)\s*\]|(\d+)\.)\s*(.*)$", re.S)
 CITATION_RE = re.compile(r"\[(\s*\d+\s*(?:(?:,|;|\-|\u2013|\u2014)\s*\d+\s*)*)\]")
 YEAR_RE = re.compile(r"\b(18|19|20)\d{2}\b")
 DOI_RE = re.compile(r"\b(?:doi:\s*)?(10\.\d{4,9}/[-._;()/:A-Za-z0-9]+)", re.I)
@@ -158,8 +158,8 @@ def parse_reference_paragraphs(paras: Sequence[etree._Element], ref_idx: int, en
         m = REF_START_RE.match(txt)
         if m:
             flush()
-            current_num = int(m.group(1))
-            current_text = [m.group(2).strip()]
+            current_num = int(m.group(1) or m.group(2))
+            current_text = [m.group(3).strip()]
         elif current_num is not None:
             current_text.append(txt)
     flush()

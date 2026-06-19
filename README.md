@@ -24,18 +24,21 @@ Typical use cases include:
 ├── README.md
 ├── RELEASE_NOTES.md
 ├── PUBLISH_TO_GITHUB.md
-├── skill.zip
 └── endnote-fieldcode-converter/
     ├── LICENSE
     ├── SKILL.md
     ├── agents/
     │   └── openai.yaml
     ├── references/
+    │   ├── bjog-endnote-formatting.md
+    │   ├── bjog-endnote-style.md
     │   ├── usage.md
     │   └── validation.md
     ├── requirements.txt
     └── scripts/
-        └── endnote_converter.py
+        ├── endnote_converter.py
+        ├── endnote_lancet_superscript_converter.py
+        └── format_bjog_endnote_docx.py
 ```
 
 ## Installation
@@ -93,6 +96,14 @@ The converter supports common bracketed numeric citation forms:
 [1, 2]
 [1-3]
 [1,3-5]
+```
+
+For Lancet-style manuscripts, use `endnote_lancet_superscript_converter.py`. It supports bare superscript numeric citations such as `14`, `16`, `25`, `6–8`, and citation numbers attached directly to punctuation or text, such as `diagnosis.16`, `disorder25`, and `use,15`. The Lancet converter prefers longer numeric citation matches first, preventing two-digit references from being split into one-digit fields.
+
+```bash
+python3 endnote-fieldcode-converter/scripts/endnote_lancet_superscript_converter.py \
+  -i manuscript.docx \
+  -o manuscript_EndNote.docx
 ```
 
 By default, the script converts only citation numbers that are found in the parsed reference list. This reduces accidental conversion of bracketed numbers that are not citations, such as years or scale scores.
